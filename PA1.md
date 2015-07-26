@@ -9,17 +9,23 @@ output: html_document
 
 #Synopsis
 
-This document summarizes quantitative analysis of data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants as described in the [source publication](http://groupware.les.inf.puc-rio.br/har).
-The idea is to predict the ways the barbell lifts were done from the data. The report is comprized as follows.
-First section describes thw raw data and how it were read. Second section is dedicated to dimensionality reduction preprocessing and actual learning then we conclude with results.
+This document summarizes quantitative analysis of data from accelerometers on the belt, forearm, arm, and dumbbell of 6 participants as described in the [source publication](http://groupware.les.inf.puc-rio.br/har).
+The idea is to predict the ways the barbell lifts were done from the data. The report is comprised as follows.
+First section describes the raw data and how it were read. Second section is dedicated to dimensionality reduction preprocessing and actual learning then we conclude with results.
 
 
 #Reading Raw Data
-We begin by observing that only a subset of data in columns below is meaningful for analysis because the measurements are present in all observations. The first column *classe* represents the way the barbell lift was done. It is the expected outcome. We also load **caret** library for subsequent analysis. 
+We begin by observing that only a subset of data in columns below is meaningful for analysis because the measurements are present in all observations. The first column *classe* represents the way the barbell lift was done. It is the expected outcome. We also load **caret** library (and others) for subsequent analysis. 
 
 
 ```r
 library(caret) 
+library(survival)
+library(splines)
+library(gbm)
+library(parallel)
+library(plyr)
+
 columns <- c("classe",
              "roll_belt", "pitch_belt", "yaw_belt", "total_accel_belt",
              "gyros_belt_x", "gyros_belt_y", "gyros_belt_z", 
@@ -102,8 +108,8 @@ str(trainPC)
 
 ##Training a Model
 
-First, we define that the K-fold cross validation strategy should be implemented for training. We chose K = 5 to 
-arrive to abalance between bias and variabilit yof the model
+First, we define that the K-fold cross validation strategy should be implemented for training. We choose K = 5 to 
+arrive to a balance between bias and variability of the model
 
 
 ```r
@@ -150,3 +156,49 @@ plot(gmbFit, metric = "Accuracy")
 From the plot we see that with Depth = 3 and more than 140 boosting iterations the model arrives to about 82% accuracy,
 i.e. about 18% of expected out-of-sample misclassification.
 
+Now lets us read the test data and pick the same columns as in training data set:
+
+```r
+columns <- c("roll_belt", "pitch_belt", "yaw_belt", "total_accel_belt",
+             "gyros_belt_x", "gyros_belt_y", "gyros_belt_z", 
+             "accel_belt_x", "accel_belt_y", "accel_belt_z",        
+             "magnet_belt_x", "magnet_belt_y","magnet_belt_z",	
+             "roll_arm", "pitch_arm","yaw_arm",	"total_accel_arm",
+             "gyros_arm_x", "gyros_arm_y","gyros_arm_z", 
+             "accel_arm_x", "accel_arm_y", "accel_arm_z",	
+             "magnet_arm_x", "magnet_arm_y","magnet_arm_z",
+             "roll_dumbbell", "pitch_dumbbell",	"yaw_dumbbell",
+             "gyros_dumbbell_x","gyros_dumbbell_y","gyros_dumbbell_z",	
+             "accel_dumbbell_x", "accel_dumbbell_y", "accel_dumbbell_z",	
+             "magnet_dumbbell_x", "magnet_dumbbell_y","magnet_dumbbell_z",	
+             "roll_forearm", "pitch_forearm", "yaw_forearm",
+             "gyros_forearm_x","gyros_forearm_y","gyros_forearm_z",	
+             "accel_forearm_x",	"accel_forearm_y", "accel_forearm_z",	
+             "magnet_forearm_x","magnet_forearm_y","magnet_forearm_z")
+dfDataTest <- read.csv("pml-testing.csv")
+dfDataTest <- dfDataTest[,columns]
+```
+
+Then we apply the previously trained PCA to reduce dimensional:
+
+```r
+testPC <- predict(preProc, dfDataTest)
+```
+
+And finally apply the model to predict the outcomes:
+
+```r
+answers <- predict(gmbFit, testPC)
+answers
+```
+
+```
+##  [1] C A C A A E D D A A A C B A E E A B A B
+## Levels: A B C D E
+```
+
+We also save the answers for the second submission 
+
+```r
+saveRDS(answers, file = "answers.Rda")
+```
